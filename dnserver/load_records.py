@@ -51,6 +51,9 @@ class Zone:
 
         return cls(host, type_, answer)
 
+    def clone_with_new_host(self, new_host):
+        return Zone(new_host, self.type, self.answer)
+
 
 @dataclass
 class Records:

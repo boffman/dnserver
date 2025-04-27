@@ -29,6 +29,8 @@ def test_load_records():
                 ),
             ),
             Zone(host='_caldavs._tcp.example.com', type='SRV', answer=[0, 1, 80, 'caldav']),
+            Zone(host='*.whenever.com', type='SRV', answer=[0, 1, 80, '1.3.3.7']),
+            Zone(host='*.whenever.com', type='A', answer='2.4.6.8'),
         ],
     )
 
