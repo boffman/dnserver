@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from textwrap import wrap
 from typing import Any, List
@@ -14,7 +14,7 @@ from .load_records import Records, Zone, load_records
 
 __all__ = 'DNSServer', 'logger'
 
-SERIAL_NO = int((datetime.utcnow() - datetime(1970, 1, 1)).total_seconds())
+SERIAL_NO = int((datetime.now(UTC) - datetime(1970, 1, 1).astimezone(UTC)).total_seconds())
 
 handler = logging.StreamHandler()
 handler.setLevel(logging.INFO)
@@ -46,7 +46,13 @@ DEFAULT_UPSTREAM = '1.1.1.1'
 
 class Record:
     def __init__(self, zone: Zone):
-        self._rname = DNSLabel(zone.host)
+        if zone.host.startswith('*.'):
+            self.is_wildcard = True
+            self._rname = DNSLabel(zone.host[2:])
+        else:
+            self.is_wildcard = False
+            self._rname = DNSLabel(zone.host)
+        self.zone = zone
 
         rd_cls, self._rtype = TYPE_LOOKUP[zone.type]
 
@@ -76,7 +82,10 @@ class Record:
         )
 
     def match(self, q):
-        return q.qname == self._rname and (q.qtype == QTYPE.ANY or q.qtype == self._rtype)
+        if self.is_wildcard:
+            return q.qname.matchSuffix(self._rname) and (q.qtype == QTYPE.ANY or q.qtype == self._rtype)
+        else:
+            return q.qname == self._rname and (q.qtype == QTYPE.ANY or q.qtype == self._rtype)
 
     def sub_match(self, q):
         return self._rtype == QTYPE.SOA and q.qname.matchSuffix(self._rname)
@@ -91,7 +100,14 @@ def resolve(request, handler, records):
     reply = request.reply()
     for record in records:
         if record.match(request.q):
-            reply.add_answer(record.rr)
+            if record.is_wildcard:
+                new_host = '.'.join([x.decode() for x in request.q.qname.label])
+                temp_zone = record.zone.clone_with_new_host(new_host)
+                temp_record = Record(temp_zone)
+                if temp_record.match(request.q):
+                    reply.add_answer(temp_record.rr)
+            else:
+                reply.add_answer(record.rr)
 
     if reply.rr:
         logger.info('found zone for %s[%s], %d replies', request.q.qname, type_name, len(reply.rr))

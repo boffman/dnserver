@@ -95,8 +95,68 @@ def test_mx_record(dns_resolver: Resolver):
     ]
 
 
+def test_a_wildcard_record(dns_resolver: Resolver):
+    response = dns_resolver('sub.whenever.com', 'A')
+    assert response == [
+        {
+            'type': 'A',
+            'value': IsIP(version=4),
+        },
+    ]
+
+    assert dns_resolver('subsub.sub.whenever.com', 'A') == [
+        {
+            'type': 'A',
+            'value': response[0]['value'],
+        },
+    ]
+
+    assert dns_resolver('subsubsub.subsub.sub.whenever.com', 'A') == [
+        {
+            'type': 'A',
+            'value': response[0]['value'],
+        },
+    ]
+
+
+def test_srv_wildcard_record(dns_resolver: Resolver):
+    response = dns_resolver('sub.whenever.com', 'SRV')
+    assert response == [
+        {
+            'type': 'SRV',
+            'value': '0 1 80 1.3.3.7.',
+        },
+    ]
+
+    assert dns_resolver('subsub.sub.whenever.com', 'SRV') == [
+        {
+            'type': 'SRV',
+            'value': response[0]['value'],
+        },
+    ]
+
+    assert dns_resolver('subsubsub.subsub.sub.whenever.com', 'SRV') == [
+        {
+            'type': 'SRV',
+            'value': response[0]['value'],
+        },
+    ]
+
+
 def test_proxy(dns_resolver: Resolver):
     assert dns_resolver('example.org', 'A') == [
+        {
+            'type': 'A',
+            'value': IsIP(version=4),
+        },
+        {
+            'type': 'A',
+            'value': IsIP(version=4),
+        },
+        {
+            'type': 'A',
+            'value': IsIP(version=4),
+        },
         {
             'type': 'A',
             'value': IsIP(version=4),
